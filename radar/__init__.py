@@ -1,1 +1,1 @@
-"""Flight Ticket Radar: ucuz uçak biletlerini izleyen radar motoru."""
+"""Flight Ticket: ucuz uçak biletlerini izleyen radar motoru."""

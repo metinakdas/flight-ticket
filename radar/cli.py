@@ -29,13 +29,13 @@ def cmd_commit_denetimi(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="python -m radar", description="Flight Ticket Radar")
+    p = argparse.ArgumentParser(prog="python -m radar", description="Flight Ticket")
     sub = p.add_subparsers(dest="komut", required=True)
 
     y = sub.add_parser("yayinla", help="Güvenlik taramasından geçirip GitHub'da yayınlar")
     y.add_argument("--deneme", action="store_true", help="Hiçbir şey göndermeden ne yapılacağını yazar")
     y.add_argument("--yalnizca-ayarlar", action="store_true", help="Dosya göndermeden Secrets ve depo ayarlarını uygular")
-    y.add_argument("--depo", default="flight-ticket-radar", help="Depo adı")
+    y.add_argument("--depo", default="flight-ticket", help="Depo adı")
     y.add_argument("--gizli", action="store_true", help="Depoyu gizli oluşturur")
     y.set_defaults(func=cmd_yayinla)
 

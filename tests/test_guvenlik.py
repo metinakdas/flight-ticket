@@ -188,7 +188,7 @@ def project(tmp_path, monkeypatch):
     for rel in yayin.WORKFLOWS:
         shutil.copy(ROOT / rel, root / rel)
     shutil.copy(ROOT / ".gitignore", root / ".gitignore")
-    (root / "README.md").write_text("# Flight Ticket Radar\n", encoding="utf-8")
+    (root / "README.md").write_text("# Flight Ticket\n", encoding="utf-8")
     (root / "radar").mkdir()
     (root / "radar" / "__init__.py").write_text("", encoding="utf-8")
     (root / ".venv").mkdir()
@@ -236,7 +236,7 @@ def test_yayin_guvenli_akis(project, capsys):
     assert "--public" in create and "--disable-issues" in create and "--disable-wiki" in create
     api = [(c["args"][2], c["args"][3], c["stdin"]) for c in log if c["args"][:1] == ["api"]]
     paths = [p for _, p, _ in api]
-    full = "repos/OrnekKullanici/flight-ticket-radar"
+    full = "repos/OrnekKullanici/flight-ticket"
     for expected in (f"{full}/interaction-limits", f"{full}/actions/permissions/workflow", f"{full}/contributors",
                      f"{full}/vulnerability-alerts", f"{full}/rulesets", f"{full}/actions/permissions/selected-actions"):
         assert expected in paths, expected
@@ -248,7 +248,7 @@ def test_yayin_guvenli_akis(project, capsys):
 
 def test_yayin_gizli_bilgi_bulursa_hicbir_sey_gondermez(project):
     root, bare, calls = project
-    (root / "README.md").write_text(f"# Flight Ticket Radar\nanahtar: {FAKE_TOKEN}\n", encoding="utf-8")
+    (root / "README.md").write_text(f"# Flight Ticket\nanahtar: {FAKE_TOKEN}\n", encoding="utf-8")
     with pytest.raises(yayin.YayinHatasi) as err:
         yayin.yayinla(root)
     assert "README.md:2" in str(err.value) and FAKE_TOKEN not in str(err.value)
@@ -260,7 +260,7 @@ def test_yayin_yasakli_ad_bulursa_hicbir_sey_gondermez(project):
     root, bare, calls = project
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)
     (root / yayin.FORBIDDEN_LIST).write_text(f"{FAKE_NAME}\n", encoding="utf-8")
-    (root / "README.md").write_text(f"# Flight Ticket Radar\n{FAKE_NAME} ile yazıldı\n", encoding="utf-8")
+    (root / "README.md").write_text(f"# Flight Ticket\n{FAKE_NAME} ile yazıldı\n", encoding="utf-8")
     with pytest.raises(yayin.YayinHatasi, match="yasaklı ad"):
         yayin.yayinla(root)
     assert not any(c["args"][:2] in (["repo", "create"], ["secret", "set"]) for c in calls())

@@ -1,4 +1,4 @@
-# Flight Ticket Radar · mimari ve iş kuralları
+# Flight Ticket · mimari ve iş kuralları
 
 Sürüm 3 · 17 Kasım 2026
 
@@ -80,7 +80,7 @@ Bu projenin altyapısı, çalışan bir önceki projeden alınır. Aynı desenle
 | Telegram, WhatsApp, e-posta gönderimi; kanal bazında gönderim takibi | `radar/notify.py` | Aynen taşınır, mesaj metinleri değişir |
 | E-posta şablon motoru ve tasarımlar | `radar/eposta.py`, `radar/eposta_sablon/` | Motor aynen; şablonlar bilet içeriğine uyarlanır |
 | Gizli bilgi maskeleme | `radar/guvenlik.py` | Aynen |
-| Grafana'ya log gönderimi | `radar/izleme.py` | Aynen, etiket `app="flight-ticket-radar"` |
+| Grafana'ya log gönderimi | `radar/izleme.py` | Aynen, etiket `app="flight-ticket"` |
 | Yayın öncesi güvenlik taraması, depo sıkılaştırma, Secrets yükleme | `radar/yayin.py` | Aynen, depo adı değişir |
 | Dış zamanlayıcı | `tetikleyici/` | Aynen, farklı dakika |
 | Grafana kural, şablon ve tatbikat betiği | `grafana/` | Kurallar bu projeye göre yeniden yazılır |
@@ -145,7 +145,7 @@ Dört parça var. Hepsi ücretsiz katmanda, hiçbiri bizim bakacağımız bir su
                                │ yalnızca HTTPS, maskelenmiş kayıtlar
                                ▼
 ┌───────────────────────────── Grafana Cloud (ücretsiz) ──────────────────────────┐
-│  Loki (loglar) · "Flight Ticket Radar İzleme" panosu · alarm kuralları          │
+│  Loki (loglar) · "Flight Ticket İzleme" panosu · alarm kuralları                │
 │  alarm → Telegram teknik grubu + e-posta                                        │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -260,7 +260,7 @@ onay sürecinde görülür. Test numarasında ücret yoktur.
 ### 5.6 İzleme (Grafana Cloud)
 
 - Önceki projenin Grafana yığını yeniden kullanılır (ücretsiz planda tek yığın). Bu proje ayrı
-  etiketle ayrılır: `app="flight-ticket-radar"`, `ortam="github"|"yerel"`, `level="info"|"error"`.
+  etiketle ayrılır: `app="flight-ticket"`, `ortam="github"|"yerel"`, `level="info"|"error"`.
 - **Ayrı** bir log yazma anahtarı açılır (yalnızca `logs:write`), ki biri iptal edilince diğer
   proje etkilenmesin.
 - Ayrı klasör, pano, kural grubu, alarm kanalı ve yönlendirme.
@@ -896,7 +896,7 @@ Kampanya sayfaları, rota analizi, fırsatlar akışı, durum ekranı.
 |---|---|---|
 | 1 | Sistem tek kişi için mi, birkaç kişi için mi? | Tek sahip; alıcılar (en fazla 5 WhatsApp numarası, bir Telegram grubu) ortak. Veri modelinde kullanıcı alanı baştan bulunur. |
 | 2 | Bildirimler için yeni Telegram botu, yeni grup ve yeni gönderici e-postası mı? | Evet, hepsi yeni; önceki projeden ayrı. |
-| 3 | Proje ve depo adı | "Flight Ticket Radar", depo `flight-ticket-radar`, Grafana etiketi `app="flight-ticket-radar"`. Bildirimlerde ve panelde görünen ad da budur. |
+| 3 | Proje ve depo adı | "Flight Ticket", depo `flight-ticket`, Grafana etiketi `app="flight-ticket"`. Bildirimlerde ve panelde görünen ad da budur. Cloudflare worker (`flight-ticket-radar-kasa`) ve D1 veritabanı (`flight-ticket-radar`) adları ilk hâliyle kalır. |
 | 4 | Logo simgesi | Yeşil kare içinde beyaz, sade bir uçak ve fiyat/iniş çizgisi; birkaç taslak sunulur |
 | 5 | Satın alma bağlantısı ortaklık (komisyon) bağlantısı olabilir mi? | Kaynak şartı gerektiriyorsa evet; mesajda bağlantının nereye gittiği yazılır |
 | 6 | Panel girişi | Worker içi tek kullanıcılı giriş. Cloudflare Access, ücretsiz planda da ödeme yöntemi istediği bildirildiği için kullanılmıyor. |

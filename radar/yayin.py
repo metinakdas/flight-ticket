@@ -30,9 +30,9 @@ from pathlib import Path
 
 from .guvenlik import SECRET_PATTERNS, redact
 
-REPO_NAME = "flight-ticket-radar"
+REPO_NAME = "flight-ticket"
 REPO_DESCRIPTION = "Ucuz uçak biletlerini izleyip haber veren kişisel radar"
-PROJECT_TITLE = "Flight Ticket Radar"
+PROJECT_TITLE = "Flight Ticket"
 
 # GitHub Secrets'a yazılacak .env anahtarları
 SECRET_KEYS = (

@@ -1,4 +1,4 @@
-# Flight Ticket Radar
+# Flight Ticket
 
 Belirli havalimanlarından kalkan ucuz uçak biletlerini kendiliğinden bulup haber veren kişisel bir
 takip sistemi. Ne arandığı bir kez tanımlanır; sistem 30 dakikada bir kontrol eder ve yalnızca

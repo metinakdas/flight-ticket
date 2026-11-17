@@ -1,4 +1,4 @@
-# Flight Ticket Radar kasası: panel + API + D1. Kurulum: kasa/KURULUM.md
+# Flight Ticket kasası: panel + API + D1. Kurulum: kasa/KURULUM.md
 # Bu dosyayı "wrangler.toml" adıyla kopyalayın ve database_id değerini yazın. wrangler.toml depoya girmez.
 name = "flight-ticket-radar-kasa"
 main = "src/worker.js"
