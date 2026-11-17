@@ -12,6 +12,7 @@ const HAVAYOLU = new Map(HAVAYOLLARI.map((x) => [x.kod, x.ad]));
 // Girişsiz açılabilen dosyalar: yalnızca giriş sayfası ve tasarım dosyaları. Veri içermezler.
 const ACIK_DOSYALAR = new Set(["/giris", "/giris.html", "/giris.js", "/style.css", "/theme.js", "/logo.svg"]);
 const EN_BUYUK_GOVDE = 1_000_000;
+const YEREL_ADLAR = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const KIMLIK = /^[a-f0-9]{8}$/;
 
 const GUVENLIK_BASLIKLARI = {
@@ -332,6 +333,11 @@ async function yonlendir(request, env) {
   const url = new URL(request.url);
   const yol = url.pathname, m = request.method;
   const okuma = m === "GET" || m === "HEAD";
+
+  // Düz HTTP ile gelen istek hiçbir şey yapılmadan HTTPS'e yönlendirilir (yerel deneme hariç).
+  if (url.protocol === "http:" && !YEREL_ADLAR.has(url.hostname)) {
+    return new Response(null, { status: 308, headers: { location: `https://${url.host}${yol}${url.search}`, "cache-control": "no-store" } });
+  }
 
   if (ACIK_DOSYALAR.has(yol) || yol.startsWith("/vendor/fonts/")) {
     return okuma ? env.ASSETS.fetch(request) : hata(405, "Yöntem desteklenmiyor.");

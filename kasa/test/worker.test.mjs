@@ -2,6 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ortamKur, ornekTakip, PAROLA, KOKEN } from "./yardimci.mjs";
+import worker from "../src/worker.js";
 
 const PANEL_UCLARI = ["/api/takipler", "/api/firsatlar", "/api/kampanyalar", "/api/ayarlar", "/api/durum", "/api/sabitler",
   "/api/takipler/abcdef12", "/api/analiz", "/api/olmayan"];
@@ -239,4 +240,17 @@ test("çıkış çerezi siler", async () => {
   const y = await istek("/api/cikis", { yontem: "POST", cerez, govde: {} });
   assert.equal(y.status, 200);
   assert.match(y.headers.get("set-cookie"), /Max-Age=0/);
+});
+
+test("düz HTTP isteği veri ya da hata ayrıntısı vermeden HTTPS'e yönlendirilir; yerel deneme adresi hariç", async () => {
+  const { env } = await ortamKur();
+  const acik = KOKEN.replace("https://", "http://");
+  for (const yol of ["/", "/giris", "/api/takipler?x=1", "/api/ic/takipler", "/api/giris"]) {
+    const y = await worker.fetch(new Request(acik + yol, { redirect: "manual" }), env);
+    assert.equal(y.status, 308, yol);
+    assert.equal(y.headers.get("location"), KOKEN + yol);
+    assert.equal(await y.text(), "");
+  }
+  const yerel = await worker.fetch(new Request("http://127.0.0.1:8787/api/takipler"), env);
+  assert.equal(yerel.status, 401);
 });
