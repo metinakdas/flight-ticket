@@ -33,6 +33,7 @@ elle yapılır; GitHub'a Cloudflare yönetim anahtarı konmaz.
 | Kod ya da panel değişikliğini yüklemek | `npx wrangler deploy` |
 | Yeni göç dosyasını uygulamak | `npx wrangler d1 migrations apply flight-ticket-radar --remote` |
 | Parolayı değiştirmek | `node araclar/gizliler.mjs --yalnizca-parola` |
+| Radar anahtarını yenilemek | `node araclar/gizliler.mjs --yalnizca-radar` |
 | Bütün oturumları kapatmak ve anahtarları yenilemek | `node araclar/gizliler.mjs` |
 
 ## Yerelde denemek
