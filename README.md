@@ -9,8 +9,9 @@ Mimari ve iş kuralları: [MIMARI.md](MIMARI.md)
 
 ## Durum
 
-Proje yapım aşamasında. Şu an depoda güvenlik araçları, kasa (Cloudflare Worker + D1) ve panelin takip
-ekranları var; radar motoru ve bildirimler sonraki fazlarda eklenir (MIMARI.md, 13. bölüm).
+Proje yapım aşamasında. Şu an depoda güvenlik araçları, kasa (Cloudflare Worker + D1), panelin takip ekranları,
+radar motoru (eşik tetiği) ve Telegram bildirimi var; diğer tetikler, e-posta, WhatsApp, kampanya radarı ve
+izleme sonraki adımlarda eklenir (MIMARI.md, 13. bölüm).
 Kasa kurulumu: [kasa/KURULUM.md](kasa/KURULUM.md)
 
 ## Yapı
@@ -35,6 +36,10 @@ Testler internete çıkmaz ve gizli bilgi istemez.
 
 | Komut | İşi |
 |---|---|
+| `python -m radar calistir --deneme` | Bildirim göndermeden ve kasaya yazmadan bir tur çalıştırır; ne yapacağını yazar |
+| `python -m radar calistir` | Tam tur: fiyatları toplar, süzer, fırsatları bildirir, sonuçları kasaya yazar |
+| `python -m radar kaynak-testi` | Fiyat kaynağına ve kasaya erişimi dener |
+| `python -m radar test-bildirim` | Kurulu kanallara deneme mesajı gönderir |
 | `python -m radar yayinla --deneme` | Güvenlik taramasını çalıştırır, ne göndereceğini yazar, hiçbir şey göndermez |
 | `python -m radar yayinla` | Taramadan geçirip GitHub'a gönderir, Secrets'ı yazar, depoyu sıkılaştırır |
 | `python -m radar yayinla --yalnizca-ayarlar` | Dosya göndermeden Secrets ve depo ayarlarını uygular |

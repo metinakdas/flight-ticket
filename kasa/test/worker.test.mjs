@@ -254,3 +254,40 @@ test("düz HTTP isteği veri ya da hata ayrıntısı vermeden HTTPS'e yönlendir
   const yerel = await worker.fetch(new Request("http://127.0.0.1:8787/api/takipler"), env);
   assert.equal(yerel.status, 401);
 });
+
+test("radar gönderim kayıtlarını ve bugünkü bildirim sayılarını geri okur (B-1, B-2, B-4, B-7); S-4: aynı gözlem yinelenmez", async () => {
+  const { istek, girisYap, env } = await ortamKur();
+  const cerez = await girisYap();
+  const yetki = { authorization: "Bearer " + env.RADAR_API_TOKEN };
+  const a = (await (await istek("/api/takipler", { yontem: "POST", cerez, govde: ornekTakip() })).json()).takip;
+  const anahtar = `${a.kimlik}|SAW|ERZ|2026-12-07`;
+  const gozlem = { kalkis: "SAW", varis: "ERZ", gidis: "2026-12-07", fiyat: 1249, havayolu: "PC", kaynak: "travelpayouts" };
+  const govde = { gozlemler: [gozlem], gonderimler: [{ anahtar, kanal: "telegram", durum: "gonderildi", fiyat: 1249 }, { anahtar, kanal: "eposta", durum: "hata", fiyat: 1249 }] };
+  assert.equal((await istek("/api/ic/sonuc", { yontem: "POST", basliklar: yetki, govde })).status, 200);
+  assert.equal((await istek("/api/ic/sonuc", { yontem: "POST", basliklar: yetki, govde: { gozlemler: [gozlem, { ...gozlem, fiyat: 1199 }] } })).status, 200);
+  assert.equal(env.DB.ham.prepare("SELECT COUNT(*) AS n FROM gozlem").get().n, 2);  // aynı fiyat yinelenmedi, yeni fiyat yazıldı
+
+  const oku = await (await istek("/api/ic/takipler", { basliklar: yetki })).json();
+  const tg = oku.gonderimler.find((g) => g.kanal === "telegram");
+  assert.deepEqual({ anahtar: tg.anahtar, durum: tg.durum, fiyat: tg.fiyat }, { anahtar, durum: "gonderildi", fiyat: 1249 });
+  assert.equal(oku.gonderimler.find((g) => g.kanal === "eposta").durum, "hata");
+  assert.deepEqual(oku.bildirimSayilari, { [a.kimlik]: 1 });
+
+  // Duraklatılan takibin gönderim kayıtları radara verilmez
+  await istek(`/api/takipler/${a.kimlik}/duraklat`, { yontem: "POST", cerez, govde: {} });
+  assert.equal((await (await istek("/api/ic/takipler", { basliklar: yetki })).json()).gonderimler.length, 0);
+});
+
+test("S-1, S-3 ve 7.10: eski gözlemler, eski gönderimler ve 30 günü geçmiş silinmiş takipler temizlenir", async () => {
+  const { istek, girisYap, env } = await ortamKur();
+  const cerez = await girisYap();
+  const yetki = { authorization: "Bearer " + env.RADAR_API_TOKEN };
+  const a = (await (await istek("/api/takipler", { yontem: "POST", cerez, govde: ornekTakip() })).json()).takip;
+  await istek(`/api/takipler/${a.kimlik}`, { yontem: "DELETE", cerez });
+  const db = env.DB.ham;
+  db.exec(`UPDATE takip SET silinme = '2026-01-01T00:00:00Z';
+    INSERT INTO gozlem (kalkis, varis, gidis, fiyat, kaynak, okunma) VALUES ('SAW', 'ERZ', '2026-01-10', 900, 'x', '2026-01-01T00:00:00Z');
+    INSERT INTO gonderim (anahtar, kanal, durum, zaman) VALUES ('eski', 'telegram', 'gonderildi', '2026-01-01T00:00:00Z');`);
+  assert.equal((await istek("/api/ic/sonuc", { yontem: "POST", basliklar: yetki, govde: {} })).status, 200);
+  for (const tablo of ["takip", "gozlem", "gonderim"]) assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM ${tablo}`).get().n, 0, tablo);
+});

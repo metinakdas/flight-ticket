@@ -1,0 +1,51 @@
+name: Radar
+
+# 30 dakikalık tur. Asıl tetikleme dışarıdan (workflow_dispatch) gelir; GitHub'ın kendi zamanlayıcısı yalnızca yedektir.
+on:
+  workflow_dispatch:
+    inputs:
+      tetik:
+        description: Turu neyin başlattığı
+        type: choice
+        options: [elle, zamanlayici]
+        default: elle
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions: {}
+
+# İki tetikleme çakışırsa ikincisi sıraya girer; çalışan tur yarıda kesilmez.
+concurrency:
+  group: radar
+  cancel-in-progress: false
+
+jobs:
+  tur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.12"
+      # Radar yalnızca standart kitaplığı kullanır; paket kurulmaz.
+      # Günlükler herkese açıktır: tur yalnızca sayıları ve takiplerin kısa kimliğini yazar.
+      - name: Bildirim ayarlarını denetle ve turu çalıştır
+        env:
+          TETIK: ${{ github.event_name == 'schedule' && 'yedek' || inputs.tetik }}
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          TRAVELPAYOUTS_MARKER: ${{ secrets.TRAVELPAYOUTS_MARKER }}
+          KASA_URL: ${{ secrets.KASA_URL }}
+          RADAR_API_TOKEN: ${{ secrets.RADAR_API_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_TECH_CHAT_ID: ${{ secrets.TELEGRAM_TECH_CHAT_ID }}
+        run: |
+          kod=0
+          python -m radar calistir --tetik "$TETIK" || kod=$?
+          # 2: bildirim kanalı, kasa ya da kaynak tanımlı değil; tur çalışmadı (uyarı verildi, iş başarısız sayılmaz)
+          if [ "$kod" -ne 0 ] && [ "$kod" -ne 2 ]; then exit "$kod"; fi

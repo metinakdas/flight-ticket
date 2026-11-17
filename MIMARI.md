@@ -872,11 +872,22 @@ Kaynak arayüzü, sorgu planı, süzgeçler, tetikler, `--deneme` modu.
 Kabul: 1. bölümdeki ilk dört örnek istek için deneme turu doğru fırsatları listeliyor; 7.
 bölümdeki her kuralın testi geçiyor.
 
+Durum (17 Kasım 2026): kaynak arayüzü, Travelpayouts GraphQL kaynağı, sorgu planı (P-1, P-2, P-4, P-5, P-7), süzgeçler
+(H-3, H-4, H-5, T-2…T-5, T-7, F-5, F-9, F-10), eşik tetiği, yeniden bildirim (B-1, B-2) ve `--deneme` kipi yazıldı ve
+testleri geçiyor. Henüz yok: dönemin en düşüğü, düşüş yüzdesi ve takibin en düşüğü tetikleri (taban verisi birikince),
+olağan dışı düşük fiyat etiketi (F-8), tazelik kademeleri (P-6), havayolu–havalimanı tutarlılık denetimi (V-8) ve
+gidiş-dönüşte dönüş havalimanı denetimi (H-6; kaynak dönüş havalimanını vermiyor). Gidiş-dönüş ve geniş kapsamlı
+sorgular gerçek kaynakla henüz denenmedi.
+
 ### Faz 4 · Bildirimler
 
 Sırayla Telegram, e-posta, WhatsApp; şablonlar; tekrar önleme; günlük sınır; özetler.
 Kabul: tatbikat fırsatı üç kanala bir kez gidiyor; aynı fırsat ikinci turda gitmiyor; bir kanal
 bozulduğunda yalnızca o kanal yeniden deneniyor.
+
+Durum (17 Kasım 2026): Telegram gönderimi, takip başına tek mesaj (B-3), mesaj içeriği (B-9, B-10), günlük sınır (B-4)
+ve kanal bazında gönderim kaydı (B-7) yazıldı. Henüz yok: e-posta, WhatsApp, günlük ve haftalık özetler (B-11, B-12),
+e-posta arızası uyarısı (B-8) ve teknik gruba kaynak hatası mesajı.
 
 ### Faz 5 · Zamanlayıcı ve izleme
 

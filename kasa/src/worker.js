@@ -32,6 +32,7 @@ const json = (veri, durum = 200, ek = {}) => new Response(JSON.stringify(veri), 
 const hata = (durum, mesaj, ek = {}) => json({ hata: mesaj, ...ek }, durum);
 const simdiISO = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const simdiSn = () => Math.floor(Date.now() / 1000);
+const gunOnce = (gun) => new Date(Date.now() - gun * 864e5).toISOString().replace(/\.\d{3}Z$/, "Z");
 
 function guvenli(yanit) {
   const y = new Response(yanit.body, yanit);
@@ -258,7 +259,15 @@ async function radarApi(request, env, url) {
   if (yol === "/api/ic/takipler" && m === "GET") {
     const { results } = await db.prepare("SELECT * FROM takip WHERE durum = 'etkin' ORDER BY COALESCE(son_tarama, '') ASC").all();
     const bugun = bugunTR();
-    return json({ bugun, ayarlar: await ayarlariOku(db), takipler: results.map((s) => { const t = satirdanTakip(s); return { ...t, pencere: pencere(t, bugun) }; }) });
+    const gunBasi = new Date(bugun + "T00:00:00+03:00").toISOString().replace(/\.\d{3}Z$/, "Z");
+    // Etkin takiplerin kanal bazında gönderim kayıtları (B-1, B-2, B-7) ve bugünkü bildirim sayıları (B-4).
+    // Gönderim anahtarı takibin kısa kimliğiyle başlar; aynı turun mesajı bütün kanallarda aynı zamanı taşır.
+    const [gonderimler, sayilar] = await Promise.all([
+      db.prepare("SELECT anahtar, kanal, durum, fiyat, zaman FROM gonderim WHERE substr(anahtar, 1, 8) IN (SELECT kimlik FROM takip WHERE durum = 'etkin')").all(),
+      db.prepare("SELECT substr(anahtar, 1, 8) AS takip, COUNT(DISTINCT zaman) AS n FROM gonderim WHERE durum = 'gonderildi' AND zaman >= ?1 GROUP BY takip").bind(gunBasi).all(),
+    ]);
+    return json({ bugun, ayarlar: await ayarlariOku(db), takipler: results.map((s) => { const t = satirdanTakip(s); return { ...t, pencere: pencere(t, bugun) }; }),
+      gonderimler: gonderimler.results, bildirimSayilari: Object.fromEntries(sayilar.results.map((s) => [s.takip, s.n])) });
   }
 
   if (yol === "/api/ic/sonuc" && m === "POST") {
@@ -284,10 +293,12 @@ async function radarApi(request, env, url) {
     }
     for (const g of dizi(veri.gozlemler, 2000)) {
       if (!kod(g.kalkis) || !kod(g.varis) || !/^\d{4}-\d{2}-\d{2}$/.test(String(g.gidis)) || sayi(g.fiyat) === null) continue;
+      // S-4: gözlem yalnızca fiyat değiştiyse ya da son kayıttan 24 saat geçtiyse yazılır
       islemler.push(db.prepare(`INSERT INTO gozlem (kalkis, varis, gidis, donus, fiyat, havayolu, ucus_no, aktarma, bagaj, kaynak, gorulme, okunma, baglanti, belirsiz)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`).bind(g.kalkis, g.varis, g.gidis, metin(g.donus, 10), sayi(g.fiyat), metin(g.havayolu, 3),
+        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14 WHERE NOT EXISTS (SELECT 1 FROM gozlem WHERE kalkis = ?1 AND varis = ?2 AND gidis = ?3
+        AND IFNULL(donus, '') = IFNULL(?4, '') AND fiyat = ?5 AND IFNULL(havayolu, '') = IFNULL(?6, '') AND okunma > ?15)`).bind(g.kalkis, g.varis, g.gidis, metin(g.donus, 10), sayi(g.fiyat), metin(g.havayolu, 3),
         metin(g.ucus_no, 8), sayi(g.aktarma), metin(g.bagaj, 20), metin(g.kaynak, 30) || "bilinmiyor", metin(g.gorulme, 25), an,
-        typeof g.baglanti === "string" && g.baglanti.startsWith("https://") ? g.baglanti.slice(0, 1000) : null, g.belirsiz ? 1 : 0));
+        typeof g.baglanti === "string" && g.baglanti.startsWith("https://") ? g.baglanti.slice(0, 1000) : null, g.belirsiz ? 1 : 0, gunOnce(1)));
     }
     for (const t of dizi(veri.tabanlar, 2000)) {
       if (!kod(t.kalkis) || !kod(t.varis) || sayi(t.en_dusuk) === null) continue;
@@ -303,8 +314,9 @@ async function radarApi(request, env, url) {
     }
     for (const g of dizi(veri.gonderimler, 2000)) {
       if (!g.anahtar || !KANALLAR.includes(g.kanal)) continue;
-      islemler.push(db.prepare(`INSERT INTO gonderim (anahtar, kanal, durum, deneme, zaman) VALUES (?1, ?2, ?3, 1, ?4)
-        ON CONFLICT(anahtar, kanal) DO UPDATE SET durum = excluded.durum, deneme = deneme + 1, zaman = excluded.zaman`).bind(metin(g.anahtar, 160), g.kanal, metin(g.durum, 20) || "gonderildi", an));
+      islemler.push(db.prepare(`INSERT INTO gonderim (anahtar, kanal, durum, deneme, zaman, fiyat) VALUES (?1, ?2, ?3, 1, ?4, ?5)
+        ON CONFLICT(anahtar, kanal) DO UPDATE SET durum = excluded.durum, deneme = deneme + 1, zaman = excluded.zaman,
+        fiyat = CASE WHEN excluded.durum = 'gonderildi' THEN excluded.fiyat ELSE fiyat END`).bind(metin(g.anahtar, 160), g.kanal, metin(g.durum, 20) || "gonderildi", an, sayi(g.fiyat)));
     }
     for (const t of dizi(veri.taramalar, 200)) {
       if (!KIMLIK.test(String(t.takip))) continue;
@@ -320,7 +332,13 @@ async function radarApi(request, env, url) {
         ON CONFLICT(kaynak) DO UPDATE SET son_basari = COALESCE(excluded.son_basari, son_basari), son_hata = COALESCE(excluded.son_hata, son_hata),
         art_arda_hata = CASE WHEN ?4 = 0 THEN 0 ELSE art_arda_hata + 1 END`).bind(metin(k.kaynak, 30), basarili ? an : null, basarili ? null : an, basarili ? 0 : 1));
     }
-    if (islemler.length) await db.batch(islemler);
+    // Veri saklama (S-1, S-2, S-3) ve silinen takiplerin 30 gün sonra temizlenmesi (7.10)
+    islemler.push(db.prepare("DELETE FROM gozlem WHERE okunma < ?1").bind(gunOnce(90)));
+    islemler.push(db.prepare("DELETE FROM gunluk_taban WHERE gun < ?1").bind(gunOnce(400).slice(0, 10)));
+    islemler.push(db.prepare("DELETE FROM gonderim WHERE zaman < ?1").bind(gunOnce(180)));
+    islemler.push(db.prepare("DELETE FROM firsat WHERE takip IN (SELECT kimlik FROM takip WHERE durum = 'silindi' AND silinme < ?1)").bind(gunOnce(30)));
+    islemler.push(db.prepare("DELETE FROM takip WHERE durum = 'silindi' AND silinme < ?1").bind(gunOnce(30)));
+    await db.batch(islemler);
     return json({ tamam: true, islem: islemler.length });
   }
 
