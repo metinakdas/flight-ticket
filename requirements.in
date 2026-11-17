@@ -1,0 +1,10 @@
+# Radarın doğrudan kullandığı paketler. Elle düzenlenen dosya budur.
+# requirements.txt bu dosyadan üretilir: tüm alt bağımlılıklar sürüm ve hash ile sabitlenir
+# (tedarik zinciri güvenliği; pip, hash'i tutmayan dosyayı kurmaz).
+#
+# Güncellemek için sürümü burada değiştir, ardından:
+#   pip-compile --generate-hashes --allow-unsafe requirements.in -o requirements.txt
+#   pip-compile --generate-hashes --allow-unsafe requirements-dev.in -o requirements-dev.txt
+#   python -m pytest
+#
+# İskelet aşamasında çalışma zamanı bağımlılığı yoktur; motor eklendikçe buraya yazılır.

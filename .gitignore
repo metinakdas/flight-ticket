@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Gizli bilgiler: .env hiçbir zaman depoya girmez (yalnızca .env.example şablonu girer)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Cloudflare Workers yerel dosyaları; .dev.vars yerel secret içerebilir
+.wrangler/
+.dev.vars
+node_modules/
+
+# Yerel çalışma dosyaları, notlar ve hatırlatmalar
+_site/
+cache/
+*.log
+HATIRLATICI.md
+PROJE_NOTLARI.md
+notlar/
+
+# İşletim sistemi dosyaları
+Thumbs.db
+desktop.ini
+.DS_Store
