@@ -113,17 +113,51 @@ def firsatlari_bul(takip: dict, uygun: list[Gozlem]) -> list[Firsat]:
     return sorted(en_ucuz.values(), key=lambda f: (f.fiyat, f.gozlem.gidis))
 
 
-def bildirilecekler(firsatlar: list[Firsat], gonderimler: list[dict], kanal: str) -> list[Firsat]:
-    """Bu kanala henüz gitmemiş (B-1, B-7) ya da fiyatı belirgin düşmüş (B-2) fırsatlar."""
-    gitmis = {g["anahtar"]: g for g in gonderimler if g.get("kanal") == kanal and g.get("durum") == "gonderildi"}
+def _belirgin_dustu(eski, yeni: float) -> bool:
+    """B-2: en az %5 ve en az 50 TL düşüş."""
+    return bool(eski) and yeni <= eski * (1 - YENIDEN_BILDIRIM_YUZDE / 100) and eski - yeni >= YENIDEN_BILDIRIM_TL
+
+
+def _zaman(metin) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(metin).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def bildirilecekler(firsatlar: list[Firsat], gonderimler: list[dict], kanal: str,
+                    onceki: dict[str, dict] | None = None, simdi: datetime | None = None) -> list[Firsat]:
+    """Bu kanala şimdi gönderilecek fırsatlar.
+
+    B-1: bu kanala gitmiş fırsat yeniden gönderilmez. B-2: fiyatı belirgin düşerse yeniden gönderilir.
+    B-7: bu kanalda gönderimi başarısız olmuş fırsat yeniden denenir (B-8: en çok 3 gün).
+    B-14: bu kanala hiç gönderim denenmemiş fırsat ancak son 24 saatte bulunduysa gönderilir. Kanal sonradan
+          bağlandığında eski fırsatlar gönderilmez; fiyatı belirgin düşen eski fırsat yeni sayılır.
+    `onceki`: kasadaki fırsat kayıtları (anahtar → {fiyat, ilk_gorulme}); `simdi` verilmezse B-14 uygulanmaz.
+    """
+    onceki = onceki or {}
+    kanal_kayitlari = {g["anahtar"]: g for g in gonderimler if g.get("kanal") == kanal}
     sonuc = []
     for f in firsatlar:
-        once = gitmis.get(f.anahtar)
-        if once is None:
+        kayit = kanal_kayitlari.get(f.anahtar)
+        if kayit and kayit.get("durum") == "gonderildi":
+            if _belirgin_dustu(kayit.get("fiyat"), f.fiyat):
+                f.yeniden = True
+                sonuc.append(f)
+            continue
+        if kayit:                                                # önceki deneme başarısız: yeniden dene, 3 gün sonra vazgeç
+            denendi = _zaman(kayit.get("zaman"))
+            if simdi is None or denendi is None or (simdi - denendi).total_seconds() <= 72 * 3600:
+                sonuc.append(f)
+            continue
+        eski = onceki.get(f.anahtar)
+        if eski is None or simdi is None:                        # bu turda ilk kez bulundu
             sonuc.append(f)
             continue
-        eski = once.get("fiyat")
-        if eski and f.fiyat <= eski * (1 - YENIDEN_BILDIRIM_YUZDE / 100) and eski - f.fiyat >= YENIDEN_BILDIRIM_TL:
+        bulundu = _zaman(eski.get("ilk_gorulme"))
+        if bulundu is not None and (simdi - bulundu).total_seconds() <= 24 * 3600:
+            sonuc.append(f)
+        elif _belirgin_dustu(eski.get("fiyat"), f.fiyat):
             f.yeniden = True
             sonuc.append(f)
     return sonuc

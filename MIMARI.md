@@ -92,7 +92,8 @@ Bu projenin altyapısı, çalışan bir önceki projeden alınır. Aynı desenle
 
 1. **GitHub'ın kendi cron'u güvenilmez.** `*/30` yazıldığı hâlde günde 48 yerine 3–4 tur çalıştı.
    Çözüm: Cloudflare Workers'tan `workflow_dispatch`. GitHub cron'u yalnızca yedek.
-2. **Bildirim kanalı tanımsızken tur çalışmamalı.** Yoksa bildirimler "gönderildi" sayılıp kaybolur.
+2. **Bildirim kanalı tanımsızken hiçbir şey "gönderildi" sayılmamalı.** Önceki projede kanal yokken tur
+   çalışmıyordu. Burada tur çalışır, ama gönderim denenmez ve kayıt düşülmez (B-14).
 3. **Gönderim takibi kanal bazında tutulur.** E-posta bozulduğunda Telegram'a gitmiş mesaj
    yeniden gönderilmez; yalnızca e-posta yeniden denenir.
 4. **E-posta arızası Telegram'dan bildirilir**: ilk hatada bir kez, sonra 24 saatte bir; 3 gün
@@ -175,6 +176,8 @@ Dört parça var. Hepsi ücretsiz katmanda, hiçbiri bizim bakacağımız bir su
   süresi 1 yıl olan fine-grained anahtar. `wrangler secret put GH_TOKEN` ile girilir.
 - İş akışına `tetik=zamanlayici` girdisi gönderir; tur bunu kaydına yazar.
 - GitHub'daki `*/30` cron'u yedek olarak kalır; iki tetikleme çakışırsa `concurrency` sıraya koyar.
+- Turlar `RADAR_ETKIN` depo değişkeni `true` iken çalışır; değişken kapatılınca iş akışı tetiklense de tur
+  çalışmaz. Turları durdurmanın yolu budur.
 
 ### 5.2 Kasa (Cloudflare Worker + D1)
 
@@ -216,8 +219,9 @@ Kasa güvenlik kuralları:
 
 Paket adı `radar`. Bir tur şu sırayla ilerler:
 
-1. **Ön denetim.** En az bir bildirim kanalı ve kasa bağlantısı tanımlı değilse tur çalışmaz,
-   Actions'ta uyarı verir.
+1. **Ön denetim.** Kasa bağlantısı ya da fiyat kaynağı anahtarı tanımlı değilse tur çalışmaz, Actions'ta
+   uyarı verir. Bildirim kanalı tanımlı değilse tur yine çalışır: fırsatlar kasaya yazılır ve panelde
+   görünür, gönderim denenmez (B-14).
 2. **Takipleri al.** Kasadan etkin takipler okunur. Kasaya ulaşılamazsa tur "hata" olarak
    kaydedilir ve biter; eski kopyayla çalışılmaz.
 3. **Süresi dolanları kapat.** Tarih penceresi tamamen geçmişte kalan takip "süresi doldu" yapılır.
@@ -495,6 +499,11 @@ sağlanan tetiklerin hepsi yazılır.
   durumları, sorunlar. Anlatacak bir şey yoksa gönderilmez.
 - **B-12** Haftalık özet (pazartesi): takip başına haftanın en düşük fiyatı ve yönü.
 - **B-13** Teknik uyarılar yalnızca Telegram teknik grubuna gider; WhatsApp'a gitmez.
+- **B-14** Bildirim kanalı yokken de turlar çalışır. Bulunan fırsatlar kasaya yazılır ve panelin Fırsatlar
+  ekranında görünür; gönderim denenmez ve hiçbir fırsat "gönderildi" sayılmaz. Bir kanal sonradan
+  bağlandığında o kanala yalnızca son 24 saatte bulunan fırsatlar gönderilir; daha eski fırsatlar
+  gönderilmez, gönderilmiş olarak da kaydedilmez. Eski bir fırsatın fiyatı B-2'deki kadar düşerse yeni
+  fırsat sayılır ve gönderilir. Gönderimi denenip başarısız olan fırsat bu kuralın dışındadır (B-7, B-8).
 
 Mesaj başlıkları:
 
@@ -586,11 +595,11 @@ taslak → etkin ⇄ duraklatıldı
 |---|---|
 | **Takipler** | Kartlar: ad, rota özeti, tarih özeti, son fiyat, son tarama, durum. Duraklat, düzenle, sil, çoğalt. |
 | **Takip formu** | Aşağıdaki girdiler. Kaydetmeden önce "bu takip şunu izleyecek" diye düz Türkçe özet gösterir. |
-| **Fırsatlar** | Bulunan fırsatların akışı; takibe, rotaya, tarihe göre süzme. |
+| **Fırsatlar** | Bulunan fırsatların akışı; takibe, rotaya, uçuş ayına göre süzme; fiyatın yaşı ve hangi kanallara gönderildiği. Kanal yokken fırsatlara buradan bakılır (B-14). |
 | **Rota analizi** | Fiyat geçmişi çizgisi, ay takvimi (gün başına en düşük fiyat, renkle), en ucuz günler. |
 | **Kampanyalar** | Havayoluna göre etkin kampanyalar. |
 | **Ayarlar** | Varsayılan eşik, günlük bildirim sınırı, varsayılan kanallar. |
-| **Durum** | Son tur, kaynakların durumu, sorgu bütçesi, kanalların durumu. |
+| **Durum** | Son tur, son turların listesi, son 24 saatte görülen fırsat sayısı, kaynakların durumu, sorgu bütçesi, kanalların durumu. |
 
 Telefon ekranı önceliklidir; her ekran 360 piksel genişlikte yatay kaydırma olmadan çalışır.
 
@@ -885,8 +894,9 @@ Sırayla Telegram, e-posta, WhatsApp; şablonlar; tekrar önleme; günlük sın�
 Kabul: tatbikat fırsatı üç kanala bir kez gidiyor; aynı fırsat ikinci turda gitmiyor; bir kanal
 bozulduğunda yalnızca o kanal yeniden deneniyor.
 
-Durum (17 Kasım 2026): Telegram gönderimi, takip başına tek mesaj (B-3), mesaj içeriği (B-9, B-10), günlük sınır (B-4)
-ve kanal bazında gönderim kaydı (B-7) yazıldı. Henüz yok: e-posta, WhatsApp, günlük ve haftalık özetler (B-11, B-12),
+Durum (17 Kasım 2026): bildirim kanalları en sona bırakıldı; turlar kanalsız çalışır ve fırsatlar panelde
+görünür (B-14). Telegram gönderimi, takip başına tek mesaj (B-3), mesaj içeriği (B-9, B-10), günlük sınır (B-4)
+ve kanal bazında gönderim kaydı (B-7) yazıldı ve sınandı, ama gerçek bir bot bağlanmadı. Henüz yok: e-posta, WhatsApp, günlük ve haftalık özetler (B-11, B-12),
 e-posta arızası uyarısı (B-8) ve teknik gruba kaynak hatası mesajı.
 
 ### Faz 5 · Zamanlayıcı ve izleme

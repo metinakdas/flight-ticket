@@ -34,7 +34,12 @@ jobs:
           python-version: "3.12"
       # Radar yalnızca standart kitaplığı kullanır; paket kurulmaz.
       # Günlükler herkese açıktır: tur yalnızca sayıları ve takiplerin kısa kimliğini yazar.
-      - name: Bildirim ayarlarını denetle ve turu çalıştır
+      # RADAR_ETKIN depo değişkeni "true" değilse tur çalışmaz; turları durdurmak için değişkeni kapatmak yeter.
+      - name: Radar kapalı
+        if: vars.RADAR_ETKIN != 'true'
+        run: echo "::notice::RADAR_ETKIN açık değil; tur çalıştırılmadı."
+      - name: Turu çalıştır
+        if: vars.RADAR_ETKIN == 'true'
         env:
           TETIK: ${{ github.event_name == 'schedule' && 'yedek' || inputs.tetik }}
           TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
@@ -47,5 +52,5 @@ jobs:
         run: |
           kod=0
           python -m radar calistir --tetik "$TETIK" || kod=$?
-          # 2: bildirim kanalı, kasa ya da kaynak tanımlı değil; tur çalışmadı (uyarı verildi, iş başarısız sayılmaz)
+          # 2: kasa ya da fiyat kaynağı tanımlı değil; tur çalışmadı (uyarı verildi, iş başarısız sayılmaz)
           if [ "$kod" -ne 0 ] && [ "$kod" -ne 2 ]; then exit "$kod"; fi

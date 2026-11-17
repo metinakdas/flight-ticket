@@ -51,7 +51,7 @@ SCAN_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TELEGRAM_TECH_CHAT_ID",
              "KASA_URL", "RADAR_API_TOKEN", "TRAVELPAYOUTS_TOKEN")
 # İş akışı dosyaları ve güncel sürümde bulunması gereken ifade
 WORKFLOWS = {
-    ".github/workflows/radar.yml": "Bildirim ayarlarını denetle",
+    ".github/workflows/radar.yml": "RADAR_ETKIN",
     ".github/workflows/testler.yml": "persist-credentials: false",
 }
 # Kişisel bilgi biçimleri: Windows kullanıcı klasörü yolları (sürücü harfi + Users + kullanıcı adı)

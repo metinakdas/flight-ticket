@@ -293,6 +293,69 @@ async function duzenleEkrani(kimlik) {
   formEkrani(ilk, kimlik);
 }
 
+// ------------------------------------------------------------------ fırsatlar ekranı
+
+const HAVAYOLU_SITESI = { PC: "https://www.flypgs.com/", VF: "https://ajet.com/", TK: "https://www.turkishairlines.com/", XQ: "https://www.sunexpress.com/" };
+const httpsMi = (u) => typeof u === "string" && u.startsWith("https://");
+
+function yasYaz(iso) {
+  if (!iso) return "ne zaman görüldüğü bilinmiyor";
+  const saat = (Date.now() - new Date(iso).getTime()) / 36e5;
+  if (saat < 1) return "1 saatten kısa süre önce görüldü";
+  if (saat < 48) return `${Math.round(saat)} saat önce görüldü`;
+  return `${Math.round(saat / 24)} gün önce görüldü`;
+}
+
+function gunYaz(s) {
+  const d = new Date(s + "T00:00:00Z");
+  return `${d.getUTCDate()} ${AY_ADI[d.getUTCMonth()].slice(0, 3)} ${GUN_ADI[(d.getUTCDay() + 6) % 7]}`;
+}
+
+async function firsatlarEkrani() {
+  const { firsatlar } = await api("/api/firsatlar");
+  const kayitlar = firsatlar.filter((f) => f.ayrinti && f.ayrinti.kalkis && f.ayrinti.gidis);
+  const suzgec = { takip: "", rota: "", ay: "", sira: "yeni" };
+  const tekil = (dizi) => [...new Set(dizi)].sort();
+  const secici = (etiket, anahtar, secenekler) => el("div", { class: "alan" }, el("label", { for: "s-" + anahtar }, etiket),
+    el("select", { id: "s-" + anahtar, onchange: (o) => { suzgec[anahtar] = o.currentTarget.value; ciz(); } },
+      secenekler.map(([deger, yazi]) => el("option", { value: deger, selected: suzgec[anahtar] === deger }, yazi))));
+  const rota = (f) => `${f.ayrinti.kalkis} → ${f.ayrinti.varis}`;
+  const adlar = new Map(kayitlar.map((f) => [f.takip, f.takip_adi]));
+
+  function ciz() {
+    let liste = kayitlar.filter((f) => (!suzgec.takip || f.takip === suzgec.takip) && (!suzgec.rota || rota(f) === suzgec.rota) && (!suzgec.ay || f.ayrinti.gidis.startsWith(suzgec.ay)));
+    liste = [...liste].sort(suzgec.sira === "ucuz" ? (a, b) => a.fiyat - b.fiyat : suzgec.sira === "tarih" ? (a, b) => a.ayrinti.gidis.localeCompare(b.ayrinti.gidis)
+      : (a, b) => b.son_gorulme.localeCompare(a.son_gorulme) || a.fiyat - b.fiyat);
+    const kartlar = liste.map((f) => {
+      const a = f.ayrinti;
+      const havayolu = durum.havayolu.get(a.havayolu) || a.havayolu || "";
+      const ad = (k) => durum.havalimani.get(k)?.ad || k;
+      return el("article", { class: "kart firsat" },
+        el("div", { class: "kart-ust" }, el("h3", {}, `${ad(a.kalkis)} → ${ad(a.varis)}`), el("span", { class: "fiyat rakam" }, tl(f.fiyat))),
+        el("p", { class: "ozet-satiri" }, [gunYaz(a.gidis) + (a.donus ? ` – dönüş ${gunYaz(a.donus)}` : ""), havayolu && `${havayolu}${a.ucus_no ? ` ${a.havayolu} ${a.ucus_no}` : ""}`,
+          a.aktarma == null ? null : a.aktarma === 0 ? "aktarmasız" : `${a.aktarma} aktarma`].filter(Boolean).join(" · ")),
+        el("p", { class: "ozet-satiri" }, `${rota(f)} · ${yasYaz(a.gorulme)} · ${a.bagaj === "dahil" ? "bagaj dahil" : a.bagaj === "yok" ? "bagaj dahil değil" : "bagaj dahil olmayabilir"}`),
+        el("div", { class: "olcumler" },
+          el("span", {}, "Takip ", el("b", {}, f.takip_adi)),
+          el("span", {}, "Bulundu ", el("b", {}, zaman(f.ilk_gorulme))),
+          el("span", {}, "Bildirim ", el("b", {}, f.kanallar.length ? f.kanallar.map((k) => KANAL_ADI[k]).join(", ") : "gönderilmedi"))),
+        el("div", { class: "kart-eylemler" },
+          httpsMi(a.baglanti) && el("a", { class: "dugme kucuk birincil", href: a.baglanti, target: "_blank", rel: "noopener noreferrer" }, "Satın al (aviasales.com)"),
+          httpsMi(HAVAYOLU_SITESI[a.havayolu]) && el("a", { class: "dugme kucuk", href: HAVAYOLU_SITESI[a.havayolu], target: "_blank", rel: "noopener noreferrer" }, `${havayolu} sitesi`)));
+    });
+    goster(
+      el("div", { class: "baslik-satiri" }, el("h1", {}, "Fırsatlar"), el("span", { class: "rozet" }, `${liste.length} / ${kayitlar.length}`)),
+      el("p", { class: "ipucu not" }, "Fiyatlar önbellekten gelir; satın almadan önce havayolu sitesinde doğrulayın."),
+      kayitlar.length > 0 && el("section", { class: "bolum suzgecler" },
+        secici("Takip", "takip", [["", "Tüm takipler"], ...tekil(kayitlar.map((f) => f.takip)).map((k) => [k, adlar.get(k)])]),
+        secici("Rota", "rota", [["", "Tüm rotalar"], ...tekil(kayitlar.map(rota)).map((r) => [r, r])]),
+        secici("Uçuş ayı", "ay", [["", "Tüm aylar"], ...tekil(kayitlar.map((f) => f.ayrinti.gidis.slice(0, 7))).map((a) => [a, `${AY_ADI[Number(a.slice(5)) - 1]} ${a.slice(0, 4)}`])]),
+        secici("Sıralama", "sira", [["yeni", "En son görülen"], ["ucuz", "En ucuz"], ["tarih", "Uçuş tarihi"]])),
+      kartlar.length ? kartlar : el("p", { class: "bilgi" }, kayitlar.length ? "Bu süzgeçlere uyan fırsat yok." : "Henüz fırsat bulunmadı. Radar her turda bulduklarını buraya yazar."));
+  }
+  ciz();
+}
+
 // ------------------------------------------------------------------ ayarlar ve durum
 
 async function ayarlarEkrani() {
@@ -339,6 +402,13 @@ async function durumEkrani() {
           satir("Süre", t.sure_sn != null ? `${t.sure_sn} sn` : "–"), satir("Sorgu", `${t.sorgu ?? "–"} (hata ${t.sorgu_hata ?? 0})`),
           satir("Gözlem", String(t.gozlem ?? "–")), satir("Fırsat", String(t.firsat ?? "–")), satir("Kalan sorgu bütçesi", `${t.butce_kalan ?? "–"} / ${d.turButcesi}`)))
       : el("p", { class: "bilgi" }, "Radar henüz hiç tur çalıştırmadı.")),
+    el("section", { class: "bolum" }, el("h3", {}, "Fırsatlar"), el("table", { class: "tablo" }, el("tbody", {},
+      satir("Son 24 saatte görülen", String(d.sonGunFirsat ?? 0))))),
+    (d.sonTurlar || []).length > 1 && el("section", { class: "bolum" }, el("h3", {}, "Son turlar"), el("table", { class: "tablo turlar" },
+      el("thead", {}, el("tr", {}, ["Zaman", "Sonuç", "Sorgu", "Gözlem", "Fırsat"].map((b) => el("th", { scope: "col" }, b)))),
+      el("tbody", {}, d.sonTurlar.map((x) => el("tr", {}, el("td", {}, zaman(x.zaman)), el("td", {}, x.durum),
+        el("td", { class: "rakam" }, `${x.sorgu ?? "–"}${x.sorgu_hata ? ` (${x.sorgu_hata} hata)` : ""}`), el("td", { class: "rakam" }, String(x.gozlem ?? "–")),
+        el("td", { class: "rakam" }, String(x.firsat ?? "–"))))))),
     el("section", { class: "bolum" }, el("h3", {}, "Takipler"), el("table", { class: "tablo" }, el("tbody", {},
       satir("Etkin", `${d.takipler.etkin || 0} / ${SINIR.etkinTakip}`), satir("Duraklatılmış", String(d.takipler.duraklatildi || 0)), satir("Süresi dolmuş", String(d.takipler["suresi-doldu"] || 0))))),
     el("section", { class: "bolum" }, el("h3", {}, "Kanallar"), el("p", {}, d.kuruluKanallar
@@ -359,6 +429,7 @@ async function yonlendir() {
   try {
     if (bolum === "yeni") yeniTakipEkrani();
     else if (bolum === "duzenle" && deger) await duzenleEkrani(deger);
+    else if (bolum === "firsatlar") await firsatlarEkrani();
     else if (bolum === "ayarlar") await ayarlarEkrani();
     else if (bolum === "durum") await durumEkrani();
     else await takiplerEkrani();

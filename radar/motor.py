@@ -39,13 +39,16 @@ def tur(ayar: Ayarlar, *, kaynak: FiyatKaynagi, kasa: Kasa, deneme: bool = False
     actions = os.environ.get("GITHUB_ACTIONS") == "true"
     ayrinti = deneme and not actions
 
-    # 1. Ön denetim: kanal ya da kasa tanımlı değilse tur çalışmaz (bildirimler kaybolmasın)
-    eksik = [ad for ad, tamam in (("bildirim kanalı", bool(ayar.kanallar)), ("kasa bağlantısı", ayar.kasa_hazir),
-                                  ("fiyat kaynağı anahtarı", bool(ayar.tp_token))) if not tamam]
+    # 1. Ön denetim: kasa ya da fiyat kaynağı tanımlı değilse tur çalışmaz.
+    #    Bildirim kanalı yoksa tur yine çalışır: fırsatlar kasaya yazılır ve panelde görünür, gönderim denenmez
+    #    ve hiçbir şey "gönderildi" sayılmaz (B-14).
+    eksik = [ad for ad, tamam in (("kasa bağlantısı", ayar.kasa_hazir), ("fiyat kaynağı anahtarı", bool(ayar.tp_token))) if not tamam]
     if eksik:
         mesaj = "Tur çalışmadı; tanımlı değil: " + ", ".join(eksik)
         out(("::warning::" if actions else "⚠ ") + mesaj)
         return 2
+    if not ayar.kanallar:
+        out("bildirim kanalı tanımlı değil: fırsatlar yalnızca kasaya yazılır")
 
     # 2. Takipleri al; kasaya ulaşılamazsa eski kopyayla çalışılmaz
     try:
@@ -56,6 +59,7 @@ def tur(ayar: Ayarlar, *, kaynak: FiyatKaynagi, kasa: Kasa, deneme: bool = False
     bugun = veri.get("bugun") or simdi.date().isoformat()
     takipler = veri.get("takipler", [])
     gonderimler = veri.get("gonderimler", [])
+    onceki_firsatlar = {f["anahtar"]: f for f in veri.get("firsatlar", [])}
     bildirim_sayilari = veri.get("bildirimSayilari", {})
     ulkeler = {kod: kayit["ulke"] for kod, kayit in messages.sabitler()[0].items()}
 
@@ -67,6 +71,8 @@ def tur(ayar: Ayarlar, *, kaynak: FiyatKaynagi, kasa: Kasa, deneme: bool = False
         nonlocal bildirim_hata
         if deneme:
             return True
+        if "telegram" not in ayar.kanallar:
+            return False
         try:
             telegram(ayar.telegram_token, ayar.telegram_chat, metin)
             return True
@@ -80,8 +86,8 @@ def tur(ayar: Ayarlar, *, kaynak: FiyatKaynagi, kasa: Kasa, deneme: bool = False
     for t in takipler:
         pencere = t.get("pencere")
         if t.get("tur") != "kampanya" and pencere and pencere["bit"] < bugun:
-            if gonder(messages.takip_bitti_mesaji(t)):
-                sonuc["suresiDolanlar"].append(t["kimlik"])
+            gonder(messages.takip_bitti_mesaji(t))               # kanal yoksa mesaj gitmez; takip yine kapatılır
+            sonuc["suresiDolanlar"].append(t["kimlik"])
             out(f"takip {t['kimlik']}: süresi doldu")
         else:
             etkin.append(t)
@@ -141,7 +147,7 @@ def tur(ayar: Ayarlar, *, kaynak: FiyatKaynagi, kasa: Kasa, deneme: bool = False
                 g = f.gozlem
                 out(f"    {g.kalkis}→{g.varis} {g.gidis} {messages.tl(g.fiyat)} {g.havayolu or ''}")
         for kanal in [k for k in t.get("kanallar", []) if k in ayar.kanallar]:
-            yeni = bildirilecekler(firsatlar, gonderimler, kanal)
+            yeni = bildirilecekler(firsatlar, gonderimler, kanal, onceki_firsatlar, simdi)
             if not yeni:
                 continue
             if bildirim_sayilari.get(t["kimlik"], 0) >= (t.get("gunlukSinir") or 10):   # B-4

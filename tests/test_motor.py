@@ -397,9 +397,48 @@ def test_deneme_kipi_bildirim_gondermez_ve_kasaya_yazmaz():
     assert any("Deneme kipi" in s for s in satirlar)
 
 
-def test_on_denetim_kanal_kasa_ya_da_kaynak_tanimsizsa_tur_calismaz():
-    for eksik in (Ayarlar(tp_token="k" * 32, kasa_url="https://kasa.ornek.dev", kasa_token="r" * 64),
-                  Ayarlar(tp_token="k" * 32, telegram_token=SAHTE_BOT, telegram_chat=SAHTE_SOHBET),
+def test_B14_kanal_yokken_tur_calisir_firsatlar_kasaya_yazilir_gonderim_denenmez():
+    kanalsiz = Ayarlar(tp_token="k" * 32, kasa_url="https://kasa.ornek.dev", kasa_token="r" * 64)
+    kasa = SahteKasa()
+    kod, mesajlar, satirlar = calistir(kasa, ayar=kanalsiz)
+    sonuc = kasa.yazilan[0]
+    assert kod == 0 and mesajlar == []
+    assert len(sonuc["firsatlar"]) == 2 and sonuc["gonderimler"] == [] and sonuc["kanallar"] == []   # hiçbir şey gönderildi sayılmaz
+    assert sonuc["tur"]["durum"] == "tamam" and sonuc["tur"]["bildirim_hata"] == 0
+    assert any("bildirim kanalı tanımlı değil" in s for s in satirlar)
+
+
+def test_B14_kanal_sonradan_baglaninca_yalnizca_son_24_saatte_bulunan_firsatlar_gonderilir():
+    eski, yeni, dusen = gozlem(1249), gozlem(1310, gidis="2026-12-12"), gozlem(1100, gidis="2026-12-14")
+    firsatlar = firsatlari_bul(takip(), [eski, yeni, dusen])
+    saat = lambda n: (SIMDI - timedelta(hours=n)).isoformat().replace("+00:00", "Z")
+    onceki = {"aaaaaaaa|SAW|ERZ|2026-12-07": {"anahtar": "aaaaaaaa|SAW|ERZ|2026-12-07", "fiyat": 1249, "ilk_gorulme": saat(30)},   # eski: gitmez
+              "aaaaaaaa|SAW|ERZ|2026-12-12": {"anahtar": "aaaaaaaa|SAW|ERZ|2026-12-12", "fiyat": 1310, "ilk_gorulme": saat(23)},   # son 24 saat: gider
+              "aaaaaaaa|SAW|ERZ|2026-12-14": {"anahtar": "aaaaaaaa|SAW|ERZ|2026-12-14", "fiyat": 1400, "ilk_gorulme": saat(90)}}   # eski ama fiyat belirgin düştü
+    secilen = bildirilecekler(firsatlar, [], "telegram", onceki, SIMDI)
+    assert {f.gozlem.gidis: f.yeniden for f in secilen} == {"2026-12-12": False, "2026-12-14": True}
+    # Kasada kaydı olmayan (bu turda ilk kez bulunan) fırsat gider
+    assert len(bildirilecekler(firsatlar, [], "telegram", {}, SIMDI)) == 3
+    # Uçtan uca: eski fırsat gönderilmez ve gönderildi olarak da kaydedilmez
+    kasa = SahteKasa()
+    kasa.veri["firsatlar"] = list(onceki.values())
+    kod, mesajlar, _ = calistir(kasa, kaynak=SahteKaynak([eski, yeni]))
+    assert kod == 0 and len(mesajlar) == 1 and "1.310 TL" in mesajlar[0] and "1.249 TL" not in mesajlar[0]
+    assert [g["anahtar"] for g in kasa.yazilan[0]["gonderimler"]] == ["aaaaaaaa|SAW|ERZ|2026-12-12"]
+    assert len(kasa.yazilan[0]["firsatlar"]) == 2                # ikisi de kasada fırsat olarak durur
+
+
+def test_B7_B8_basarisiz_gonderim_yeniden_denenir_uc_gun_sonra_vazgecilir():
+    f = firsatlari_bul(takip(), [gozlem(1249)])
+    saat = lambda n: (SIMDI - timedelta(hours=n)).isoformat().replace("+00:00", "Z")
+    onceki = {f[0].anahtar: {"anahtar": f[0].anahtar, "fiyat": 1249, "ilk_gorulme": saat(100)}}
+    hata = lambda n: [{"anahtar": f[0].anahtar, "kanal": "telegram", "durum": "hata", "fiyat": 1249, "zaman": saat(n)}]
+    assert len(bildirilecekler(f, hata(30), "telegram", onceki, SIMDI)) == 1     # 24 saati geçse de başarısız gönderim yeniden denenir
+    assert bildirilecekler(f, hata(73), "telegram", onceki, SIMDI) == []
+
+
+def test_on_denetim_kasa_ya_da_kaynak_tanimsizsa_tur_calismaz():
+    for eksik in (Ayarlar(tp_token="k" * 32, telegram_token=SAHTE_BOT, telegram_chat=SAHTE_SOHBET),
                   Ayarlar(kasa_url="https://kasa.ornek.dev", kasa_token="r" * 64, telegram_token=SAHTE_BOT, telegram_chat=SAHTE_SOHBET),
                   Ayarlar(tp_token="k" * 32, kasa_url="http://kasa.ornek.dev", kasa_token="r" * 64, telegram_token=SAHTE_BOT, telegram_chat=SAHTE_SOHBET)):
         kasa, kaynak = SahteKasa(), SahteKaynak()

@@ -151,6 +151,17 @@ input[type="number"] { font-family: var(--ov); font-variant-numeric: tabular-num
 .tablo th { color: var(--muted); font-weight: 600; width: 45%; padding-right: var(--s-2); }
 .tablo tr:last-child th, .tablo tr:last-child td { border-bottom: 0; }
 
+/* Fırsatlar ve durum */
+.firsat .fiyat { flex: none; font-size: 20px; font-weight: 800; color: var(--brand-ink); white-space: nowrap; }
+.suzgecler { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+.suzgecler .alan { margin-bottom: 0; }
+.suzgecler label { display: block; font-weight: 600; font-size: 13px; margin-bottom: var(--s-1); color: var(--muted); }
+.suzgecler select { font-size: 14px; padding: 0 var(--s-2); }
+.ipucu.not { color: var(--muted); font-size: 13px; margin: calc(-1 * var(--s-2)) 0 var(--s-3); }
+.tablo.turlar th { width: auto; font-size: 12px; }
+.tablo.turlar td, .tablo.turlar th { padding-right: var(--s-2); font-size: 13px; }
+.alt-gezinme a { font-size: 13px; }
+
 /* Giriş sayfası */
 .giris-sayfasi { display: grid; place-items: center; min-height: 100vh; padding: var(--s-4); }
 .giris-kutu { width: 100%; max-width: 340px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-5);

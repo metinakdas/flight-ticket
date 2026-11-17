@@ -150,19 +150,28 @@ async function panelApi(request, env, url) {
   }
 
   if (yol === "/api/durum" && m === "GET") {
-    const [sonTur, sayim, kaynaklar, ayarlar] = await Promise.all([
+    const [sonTur, sonTurlar, firsatSayisi, sayim, kaynaklar, ayarlar] = await Promise.all([
       db.prepare("SELECT * FROM tur ORDER BY id DESC LIMIT 1").first(),
+      db.prepare("SELECT zaman, durum, tetik, sure_sn, sorgu, sorgu_hata, gozlem, firsat FROM tur ORDER BY id DESC LIMIT 12").all(),
+      db.prepare("SELECT COUNT(*) AS n FROM firsat WHERE son_gorulme >= ?1").bind(gunOnce(1)).first(),
       db.prepare("SELECT durum, COUNT(*) AS n FROM takip WHERE durum != 'silindi' GROUP BY durum").all(),
       db.prepare("SELECT * FROM kaynak_durum ORDER BY kaynak").all(),
       ayarlariOku(db),
     ]);
-    return json({ sonTur: sonTur || null, takipler: Object.fromEntries(sayim.results.map((s) => [s.durum, s.n])),
+    return json({ sonTur: sonTur || null, sonTurlar: sonTurlar.results, sonGunFirsat: Number(firsatSayisi?.n || 0), takipler: Object.fromEntries(sayim.results.map((s) => [s.durum, s.n])),
       kaynaklar: kaynaklar.results, kuruluKanallar: ayarlar.kurulu_kanallar, turButcesi: SINIR.turButcesi });
   }
 
   if (yol === "/api/firsatlar" && m === "GET") {
-    const { results } = await db.prepare("SELECT * FROM firsat ORDER BY son_gorulme DESC LIMIT 100").all();
-    return json({ firsatlar: results.map((f) => ({ ...f, tetikler: coz(f.tetikler, []), ayrinti: coz(f.ayrinti, null) })) });
+    // Silinmiş takiplerin fırsatları gösterilmez. Kanal bazında gönderim durumu da eklenir.
+    const [{ results }, gonderimler] = await Promise.all([
+      db.prepare(`SELECT f.id, f.takip, f.anahtar, f.fiyat, f.tetikler, f.ilk_gorulme, f.son_gorulme, f.durum, f.ayrinti, t.ad AS takip_adi, t.durum AS takip_durumu
+        FROM firsat f JOIN takip t ON t.kimlik = f.takip WHERE t.durum != 'silindi' ORDER BY f.son_gorulme DESC, f.fiyat ASC LIMIT 300`).all(),
+      db.prepare("SELECT anahtar, kanal FROM gonderim WHERE durum = 'gonderildi'").all(),
+    ]);
+    const gitti = new Map();
+    for (const g of gonderimler.results) gitti.set(g.anahtar, [...(gitti.get(g.anahtar) || []), g.kanal]);
+    return json({ firsatlar: results.map((f) => ({ ...f, tetikler: coz(f.tetikler, []), ayrinti: coz(f.ayrinti, null), kanallar: gitti.get(f.anahtar) || [] })) });
   }
 
   if (yol === "/api/kampanyalar" && m === "GET") {
@@ -262,12 +271,14 @@ async function radarApi(request, env, url) {
     const gunBasi = new Date(bugun + "T00:00:00+03:00").toISOString().replace(/\.\d{3}Z$/, "Z");
     // Etkin takiplerin kanal bazında gönderim kayıtları (B-1, B-2, B-7) ve bugünkü bildirim sayıları (B-4).
     // Gönderim anahtarı takibin kısa kimliğiyle başlar; aynı turun mesajı bütün kanallarda aynı zamanı taşır.
-    const [gonderimler, sayilar] = await Promise.all([
+    // Kasadaki fırsat kayıtları da verilir: kanal sonradan bağlanınca yalnızca son 24 saatte bulunanlar gönderilir (B-14).
+    const [gonderimler, firsatlar, sayilar] = await Promise.all([
       db.prepare("SELECT anahtar, kanal, durum, fiyat, zaman FROM gonderim WHERE substr(anahtar, 1, 8) IN (SELECT kimlik FROM takip WHERE durum = 'etkin')").all(),
+      db.prepare("SELECT anahtar, fiyat, ilk_gorulme FROM firsat WHERE takip IN (SELECT kimlik FROM takip WHERE durum = 'etkin')").all(),
       db.prepare("SELECT substr(anahtar, 1, 8) AS takip, COUNT(DISTINCT zaman) AS n FROM gonderim WHERE durum = 'gonderildi' AND zaman >= ?1 GROUP BY takip").bind(gunBasi).all(),
     ]);
     return json({ bugun, ayarlar: await ayarlariOku(db), takipler: results.map((s) => { const t = satirdanTakip(s); return { ...t, pencere: pencere(t, bugun) }; }),
-      gonderimler: gonderimler.results, bildirimSayilari: Object.fromEntries(sayilar.results.map((s) => [s.takip, s.n])) });
+      gonderimler: gonderimler.results, firsatlar: firsatlar.results, bildirimSayilari: Object.fromEntries(sayilar.results.map((s) => [s.takip, s.n])) });
   }
 
   if (yol === "/api/ic/sonuc" && m === "POST") {
