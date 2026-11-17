@@ -1,0 +1,23 @@
+# Flight Ticket Radar kasası: panel + API + D1. Kurulum: kasa/KURULUM.md
+# Bu dosyayı "wrangler.toml" adıyla kopyalayın ve database_id değerini yazın. wrangler.toml depoya girmez.
+name = "flight-ticket-radar-kasa"
+main = "src/worker.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+preview_urls = false
+
+# Panel dosyaları aynı worker'dan sunulur; her istek önce worker'dan (giriş denetiminden) geçer.
+[assets]
+directory = "../panel"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "none"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flight-ticket-radar"
+database_id = "D1-KIMLIGI-BURAYA"
+migrations_dir = "gocler"
+
+[observability]
+enabled = true

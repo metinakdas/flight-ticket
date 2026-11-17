@@ -29,3 +29,6 @@ notlar/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Kasa: hesaba özel yapılandırma (D1 kimliği) depoya girmez; şablonu wrangler.ornek.toml
+kasa/wrangler.toml

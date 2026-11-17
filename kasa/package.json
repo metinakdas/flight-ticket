@@ -1,0 +1,13 @@
+{
+  "name": "flight-ticket-radar-kasa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.164.0"
+  }
+}

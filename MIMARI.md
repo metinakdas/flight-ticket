@@ -189,16 +189,18 @@ Uçlar:
 | Uç | Kim kullanır | Kimlik doğrulama |
 |---|---|---|
 | `/` ve arayüz dosyaları | Kullanıcı | Oturum (aşağıda) |
-| `/api/takipler`, `/api/firsatlar`, `/api/analiz`, `/api/kampanyalar`, `/api/ayarlar`, `/api/durum` | Panel | Oturum çerezi |
+| `/api/takipler`, `/api/firsatlar`, `/api/analiz`, `/api/kampanyalar`, `/api/ayarlar`, `/api/durum`, `/api/sabitler` | Panel | Oturum çerezi |
 | `/api/ic/takipler` (oku), `/api/ic/sonuc` (yaz) | Radar (GitHub Actions) | `RADAR_API_TOKEN` (Bearer) |
 
-Giriş koruması, öncelik sırasıyla:
+Giriş koruması **worker içinde tek kullanıcılı giriştir**. Cloudflare Access kullanılmaz: ücretsiz planı
+seçilirken de ödeme yöntemi istendiği bildirildi (Ü-2).
 
-1. **Cloudflare Access** (ücretsiz, 50 kullanıcıya kadar; e-postaya tek kullanımlık kod).
-   Kredi kartı isteyip istemediği Faz 0'da doğrulanır (Ü-2).
-2. Kart istiyorsa **worker içinde tek kullanıcılı giriş**: parola özeti (PBKDF2) worker secret'ı
-   olarak durur; başarılı girişte imzalı, `HttpOnly; Secure; SameSite=Strict` çerez verilir;
-   IP başına 15 dakikada 5 hatalı denemeden sonra giriş kilitlenir.
+- Parolanın kendisi saklanmaz; özeti (PBKDF2-SHA256, 100.000 tur) worker secret'ı olarak durur.
+- Başarılı girişte imzalı, `HttpOnly; Secure; SameSite=Strict` çerez verilir; 7 gün geçerlidir.
+- IP başına 15 dakikada 5 hatalı denemeden sonra giriş kilitlenir. IP'nin kendisi değil, anahtarlı
+  özeti saklanır.
+- Gizli değerler tanımlı değilse giriş tümüyle kapalıdır.
+- Girişsiz yalnızca giriş sayfası ve tasarım dosyaları açılır; diğer her yol girişe yönlenir.
 
 Kasa güvenlik kuralları:
 
@@ -747,7 +749,7 @@ dosya ve satır gösterilir:
 | `KASA_URL`, `RADAR_API_TOKEN` | `.env`, GitHub Secrets, kasa worker secret | Yalnızca `/api/ic/*` | Rastgele, en az 32 bayt |
 | Fiyat kaynağı anahtarı | `.env`, GitHub Secrets | Okuma | |
 | `GH_TOKEN` | Yalnızca Cloudflare (zamanlayıcı worker secret) | Yalnızca bu depo, Actions R/W | 1 yıl; bitiş tarihi takvime yazılır |
-| Panel giriş parolası özeti | Yalnızca Cloudflare (kasa worker secret) | – | Cloudflare Access kullanılmazsa |
+| Panel giriş parolası özeti ve oturum anahtarı | Yalnızca Cloudflare (kasa worker secret) | – | `kasa/araclar/gizliler.mjs` ile girilir |
 
 - Her anahtar `guvenlik.SECRET_ENV_KEYS` listesine eklenir; `redact()` hepsini maskeler.
 - Sızıntı şüphesinde anahtar hemen iptal edilip yenilenir; "belki sızmamıştır" denmez.
@@ -897,7 +899,7 @@ Kampanya sayfaları, rota analizi, fırsatlar akışı, durum ekranı.
 | 3 | Proje ve depo adı | "Flight Ticket Radar", depo `flight-ticket-radar`, Grafana etiketi `app="flight-ticket-radar"`. Bildirimlerde ve panelde görünen ad da budur. |
 | 4 | Logo simgesi | Yeşil kare içinde beyaz, sade bir uçak ve fiyat/iniş çizgisi; birkaç taslak sunulur |
 | 5 | Satın alma bağlantısı ortaklık (komisyon) bağlantısı olabilir mi? | Kaynak şartı gerektiriyorsa evet; mesajda bağlantının nereye gittiği yazılır |
-| 6 | Panel girişi | Cloudflare Access; kart istiyorsa worker içi tek kullanıcılı giriş |
+| 6 | Panel girişi | Worker içi tek kullanıcılı giriş. Cloudflare Access, ücretsiz planda da ödeme yöntemi istediği bildirildiği için kullanılmıyor. |
 | 7 | Varsayılan sessiz saatler ve günlük sınır | Sessiz saat yok; bildirim bulunduğu turda hemen gider. Günlük sınır takip başına 10. |
 | 8 | Fiyatlar canlı mı olacak? | Canlı fiyat kurallara uygun biçimde ücretsiz alınamıyor. Fiyatlar önbellek (Travelpayouts) ve fiyat uyarısı e-postalarından gelir; her bildirimde fiyatın yaşı yazar. Kesin fiyat havayolu sitesinde doğrulanır. Fiyat uyarısı e-postaları yolu çalışırsa bu karar yeniden güncellenir. |
 
@@ -913,7 +915,6 @@ Henüz sınanmamış olanlar. Sınandıkça bu listeden çıkar; yanlış çıka
 1. Düzenli otomatik sorgunun kaynak şartlarına uygun olduğu; ortaklık bağlantısının zorunlu olup
    olmadığı.
 2. Kaynak fiyatlarının havayolu sitesindeki fiyata yakın olduğu (ortanca sapma < %10).
-3. Cloudflare Access'in kredi kartı istemeden açılabildiği.
 4. Havayolu kampanya sayfalarının GitHub'ın yurt dışı IP'lerinden okunabildiği ve `robots.txt`
    ile yasaklanmadığı.
 5. Meta'nın bilet fırsatı şablonunu onaylayacağı.

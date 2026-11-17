@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Giriş · Flight Ticket Radar</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="giris-sayfasi">
+  <main class="giris-kutu">
+    <img class="giris-logo" src="logo.svg" alt="" width="56" height="56">
+    <h1>Flight Ticket Radar</h1>
+    <form id="giris-formu" novalidate>
+      <label for="parola">Parola</label>
+      <input id="parola" name="parola" type="password" autocomplete="current-password" required maxlength="200">
+      <p id="giris-hata" class="hata-metni" role="alert" hidden></p>
+      <button class="dugme birincil genis" type="submit">Giriş yap</button>
+    </form>
+  </main>
+  <script src="giris.js"></script>
+</body>
+</html>

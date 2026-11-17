@@ -9,8 +9,9 @@ Mimari ve iş kuralları: [MIMARI.md](MIMARI.md)
 
 ## Durum
 
-Proje yapım aşamasında. Şu an depoda iskelet ve güvenlik araçları var; radar motoru, kasa, panel ve
-bildirimler sonraki fazlarda eklenir (MIMARI.md, 13. bölüm).
+Proje yapım aşamasında. Şu an depoda güvenlik araçları, kasa (Cloudflare Worker + D1) ve panelin takip
+ekranları var; radar motoru ve bildirimler sonraki fazlarda eklenir (MIMARI.md, 13. bölüm).
+Kasa kurulumu: [kasa/KURULUM.md](kasa/KURULUM.md)
 
 ## Yapı
 
@@ -25,6 +26,8 @@ python -m venv .venv
 .venv\Scripts\pip install --require-hashes -r requirements-dev.txt
 .venv\Scripts\python -X utf8 -m pytest -q
 ```
+
+Kasa ve panel kuralı testleri: `node --test "kasa/test/*.test.mjs"` (Node 24; paket kurulmaz).
 
 Testler internete çıkmaz ve gizli bilgi istemez.
 
